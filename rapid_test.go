@@ -47,7 +47,7 @@ func (m *qMachine) Push(t *rapid.T) {
 }
 
 func (m *qMachine) Pop(t *rapid.T) {
-	if m.q.Empty() {
+	if m.golden.Len() == 0 {
 		t.Skip()
 	}
 
@@ -55,13 +55,36 @@ func (m *qMachine) Pop(t *rapid.T) {
 	m.golden.Remove(m.golden.Front())
 }
 
+func (m *qMachine) TryPop(t *rapid.T) {
+	got, ok := m.q.TryPop()
+
+	front := m.golden.Front()
+	if front == nil {
+		assert.False(t, ok)
+	} else {
+		assert.Equal(t, m.golden.Remove(front), got)
+	}
+}
+
 func (m *qMachine) Peek(t *rapid.T) {
-	if m.q.Empty() {
+	if m.golden.Len() == 0 {
 		t.Skip()
 	}
 
 	got := m.q.Peek()
 	assert.Equal(t, m.golden.Front().Value, got)
+}
+
+func (m *qMachine) TryPeek(t *rapid.T) {
+	got, ok := m.q.TryPeek()
+
+	front := m.golden.Front()
+	if front == nil {
+		assert.False(t, ok)
+		return
+	}
+
+	assert.Equal(t, front.Value, got)
 }
 
 func (m *qMachine) Clear(t *rapid.T) {
@@ -87,10 +110,6 @@ func (m *qMachine) Snapshot(t *rapid.T) {
 }
 
 func (m *qMachine) Do(t *rapid.T) {
-	if m.q.Empty() {
-		t.Skip()
-	}
-
 	el := m.golden.Front()
 	m.q.Do(func(x int) bool {
 		assert.Equal(t, el.Value, x)
