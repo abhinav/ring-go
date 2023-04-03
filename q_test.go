@@ -51,6 +51,8 @@ func testQueueSuite(t *testing.T, newWithCap func(capacity int) *ring.Q[int]) {
 				t.Run("PushPop", suite.TestPushPop)
 				t.Run("PushPopInterleaved", suite.TestPushPopInterleaved)
 				t.Run("PushPopWraparound", suite.TestPushPopWraparound)
+				t.Run("Snapshot", suite.TestSnapshot)
+				t.Run("SnapshotReuse", suite.TestSnapshotReuse)
 			})
 		}
 	}
@@ -148,4 +150,37 @@ func (s *queueSuite) TestPushPopWraparound(t *testing.T) {
 	}
 
 	assert.Equal(t, want, got, "items")
+}
+
+func (s *queueSuite) TestSnapshot(t *testing.T) {
+	t.Parallel()
+
+	q := s.NewEmpty()
+	for i := 0; i < s.NumItems; i++ {
+		q.Push(i)
+	}
+
+	snap := q.Snapshot(nil /* dst */)
+	assert.Len(t, snap, q.Len(), "length")
+	for _, item := range snap {
+		assert.Equal(t, item, q.Pop(), "item")
+	}
+}
+
+func (s *queueSuite) TestSnapshotReuse(t *testing.T) {
+	t.Parallel()
+
+	q := s.NewEmpty()
+	for i := 0; i < s.NumItems; i++ {
+		q.Push(i)
+	}
+
+	snap := []int{42}
+	snap = q.Snapshot(snap)
+	assert.Len(t, snap, q.Len()+1, "length")
+
+	assert.Equal(t, 42, snap[0], "item")
+	for _, item := range snap[1:] {
+		assert.Equal(t, item, q.Pop(), "item")
+	}
 }

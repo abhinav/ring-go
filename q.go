@@ -129,6 +129,26 @@ func (q *Q[T]) Peek() T {
 	return q.buff[q.head]
 }
 
+// Snapshot appends the contents of the queue to dst and returns the result.
+// Use dst to avoid allocations when you know the capacity of the queue
+//
+//	dst := make([]T, 0, q.Len())
+//	dst = q.Snapshot(dst)
+//
+// Pass nil to let the function allocate a new slice.
+//
+//	q.Snapshot(nil) // allocates a new slice
+//
+// The returned slice is a copy of the internal buffer and is safe to modify.
+func (q *Q[T]) Snapshot(dst []T) []T {
+	if q.head <= q.tail {
+		return append(dst, q.buff[q.head:q.tail]...)
+	}
+
+	dst = append(dst, q.buff[q.head:]...)
+	return append(dst, q.buff[:q.tail]...)
+}
+
 // Do calls f for each item in the queue, from front to back.
 // It stops if f returns false.
 //
