@@ -13,6 +13,17 @@ with usage patterns that have:
 
 See [API Reference](https://abhinav.github.io/ring-go) for more details.
 
+## Motivation
+
+I often find myself needing a queue in projects.
+In a hurry, I reach for `container/list` or a slice.
+However, they are both allocation-heavy (depending on usage pattern).
+
+This repository largely exists so that there's a known working version
+of a more efficient queue implementation (for specific usage patterns)
+that I can use or copy-paste directly where I need.
+Feel free to use it in the same way if it meets your needs.
+
 ## License
 
 This software is made available under the MIT license.
