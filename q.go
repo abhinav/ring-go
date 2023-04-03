@@ -66,7 +66,6 @@ func (q *Q[T]) Clear() {
 // This operation is O(n) in the worst case if the queue needs to grow.
 // However, for target use cases, it's amortized O(1).
 // See package documentation for details.
-// If your usage pattern is bursts of pushes followed by bursts of pops,
 func (q *Q[T]) Push(x T) {
 	if len(q.buff) == 0 {
 		q.buff = make([]T, _defaultCapacity)
