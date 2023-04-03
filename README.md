@@ -2,6 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/go.abhg.dev/container/ring.svg)](https://pkg.go.dev/go.abhg.dev/container/ring)
 [![CI](https://github.com/abhinav/ring-go/actions/workflows/ci.yml/badge.svg)](https://github.com/abhinav/ring-go/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/abhinav/ring-go/branch/main/graph/badge.svg?token=zXfHANxPoF)](https://codecov.io/gh/abhinav/ring-go)
 
 container/ring provides an efficient queue data structure
 intended to be used in performance-sensitive contexts
