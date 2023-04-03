@@ -47,12 +47,18 @@ func testQCases(t *testing.T, newEmpty func() *ring.Q[int], NumItems int) {
 		q := newEmpty()
 		assert.True(t, q.Empty(), "empty")
 		assert.Zero(t, q.Len(), "length")
+
 		assert.Panics(t, func() {
 			q.Pop()
 		}, "pop")
 		assert.Panics(t, func() {
 			q.Peek()
 		}, "pop")
+
+		q.Do(func(item int) bool {
+			t.Errorf("unexpected item: %v", item)
+			return true
+		})
 	})
 
 	t.Run("push all then pop", func(t *testing.T) {
@@ -64,6 +70,15 @@ func testQCases(t *testing.T, newEmpty func() *ring.Q[int], NumItems int) {
 		}
 		assert.False(t, q.Empty(), "empty")
 		assert.Equal(t, NumItems, q.Len(), "length")
+
+		t.Run("Do", func(t *testing.T) {
+			want := 0
+			q.Do(func(item int) bool {
+				assert.Equal(t, want, item, "item")
+				want++
+				return true
+			})
+		})
 
 		for i := 0; i < NumItems; i++ {
 			assert.Equal(t, i, q.Peek(), "peek")
@@ -80,6 +95,10 @@ func testQCases(t *testing.T, newEmpty func() *ring.Q[int], NumItems int) {
 		q := newEmpty()
 		for i := 0; i < NumItems; i++ {
 			q.Push(i)
+			q.Do(func(item int) bool {
+				assert.Equal(t, i, item, "item")
+				return true
+			})
 			assert.Equal(t, i, q.Peek(), "peek")
 			assert.Equal(t, i, q.Pop(), "pop")
 		}
