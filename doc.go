@@ -4,8 +4,8 @@
 // is that it requires significantly fewer allocations
 // for specific usage patterns.
 //
-// - consistent rate of pushes and pops
-// - bursts of pushes followed by bursts of pops
+//   - consistent rate of pushes and pops
+//   - bursts of pushes followed by bursts of pops
 //
 // # Implementation
 //
