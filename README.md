@@ -11,6 +11,27 @@ with usage patterns that have:
 - a similar rate of pushes and pops
 - bursts of pushes followed by bursts of pops
 
+## Example
+
+As an example, this is a good place to store pending nodes
+during a breadth-first traversal of a graph.
+It will allocate only if a node has more direct children
+than capacity in the queue.
+For example, given a hypothetical tree structure:
+
+```go
+var pending ring.Q[Node]
+pending.Push(root)
+
+for !pending.Empty() {
+    current := pending.Pop()
+    visit(current)
+    for _, child := range current.Children {
+        pending.Push(child)
+    }
+}
+```
+
 See [API Reference](https://abhinav.github.io/ring-go) for more details.
 
 ## Motivation
