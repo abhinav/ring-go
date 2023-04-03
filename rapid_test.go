@@ -15,6 +15,12 @@ func TestQ_rapid(t *testing.T) {
 	rapid.Check(t, rapid.Run[*qMachine[*ring.Q[int]]]())
 }
 
+func TestMuQ_rapid(t *testing.T) {
+	t.Parallel()
+
+	rapid.Check(t, rapid.Run[*qMachine[*ring.MuQ[int]]]())
+}
+
 type qMachine[QT queue[int]] struct {
 	q QT
 
@@ -30,6 +36,8 @@ func (m *qMachine[QT]) Init(t *rapid.T) {
 	switch queue[int](*new(QT)).(type) {
 	case *ring.Q[int]:
 		q = ring.NewQ[int](capacity)
+	case *ring.MuQ[int]:
+		q = ring.NewMuQ[int](capacity)
 	default:
 		t.Fatalf("cannot instantiate queue type: %T", *new(QT))
 	}

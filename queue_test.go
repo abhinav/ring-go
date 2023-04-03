@@ -20,6 +20,14 @@ func TestQ(t *testing.T) {
 	})
 }
 
+func TestMuQ(t *testing.T) {
+	t.Parallel()
+
+	testQueueSuite(t, func(capacity int) queue[int] {
+		return ring.NewMuQ[int](capacity)
+	})
+}
+
 type queue[T any] interface {
 	Empty() bool
 	Len() int
@@ -30,7 +38,10 @@ type queue[T any] interface {
 	Snapshot([]T) []T
 }
 
-var _ queue[int] = (*ring.Q[int])(nil)
+var (
+	_ queue[int] = (*ring.Q[int])(nil)
+	_ queue[int] = (*ring.MuQ[int])(nil)
+)
 
 func testQueueSuite(t *testing.T, newWithCap func(capacity int) queue[int]) {
 	capacities := []int{
