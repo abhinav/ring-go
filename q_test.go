@@ -13,6 +13,12 @@ import (
 func TestQ(t *testing.T) {
 	t.Parallel()
 
+	testQueueSuite(t, func(capacity int) *ring.Q[int] {
+		return ring.NewQ[int](capacity)
+	})
+}
+
+func testQueueSuite(t *testing.T, newWithCap func(capacity int) *ring.Q[int]) {
 	capacities := []int{
 		-1, // special case: use zero value
 		0, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024,
@@ -21,112 +27,125 @@ func TestQ(t *testing.T) {
 
 	for _, capacity := range capacities {
 		for _, size := range sizes {
+			require.Greater(t, size, 0,
+				"invalid test: sizes must be greater than 0")
+
 			capacity, size := capacity, size
-			name := fmt.Sprintf("capacity=%d/items=%d", capacity, size)
+			name := fmt.Sprintf("Capacity=%d/Size=%d", capacity, size)
+			newEmpty := func() *ring.Q[int] {
+				if capacity < 0 {
+					return new(ring.Q[int])
+				}
+				return newWithCap(capacity)
+			}
+
 			t.Run(name, func(t *testing.T) {
 				t.Parallel()
 
-				require.Greater(t, size, 0,
-					"invalid test: sizes must be greater than 0")
+				suite := &queueSuite{
+					NewEmpty: newEmpty,
+					NumItems: size,
+				}
 
-				testQCases(t, func() *ring.Q[int] {
-					if capacity < 0 {
-						return new(ring.Q[int])
-					}
-					return ring.NewQ[int](capacity)
-				}, size)
+				t.Run("Empty", suite.TestEmpty)
+				t.Run("PushPop", suite.TestPushPop)
+				t.Run("PushPopInterleaved", suite.TestPushPopInterleaved)
+				t.Run("PushPopWraparound", suite.TestPushPopWraparound)
 			})
 		}
 	}
 }
 
-func testQCases(t *testing.T, newEmpty func() *ring.Q[int], NumItems int) {
-	t.Run("empty", func(t *testing.T) {
-		t.Parallel()
+type queueSuite struct {
+	NewEmpty func() *ring.Q[int]
+	NumItems int
+}
 
-		q := newEmpty()
-		assert.True(t, q.Empty(), "empty")
-		assert.Zero(t, q.Len(), "length")
+func (s *queueSuite) TestEmpty(t *testing.T) {
+	t.Parallel()
 
-		assert.Panics(t, func() {
-			q.Pop()
-		}, "pop")
-		assert.Panics(t, func() {
-			q.Peek()
-		}, "pop")
+	q := s.NewEmpty()
+	assert.True(t, q.Empty(), "empty")
+	assert.Zero(t, q.Len(), "length")
 
+	assert.Panics(t, func() {
+		q.Pop()
+	}, "pop")
+	assert.Panics(t, func() {
+		q.Peek()
+	}, "pop")
+
+	q.Do(func(item int) bool {
+		t.Errorf("unexpected item: %v", item)
+		return true
+	})
+}
+
+func (s *queueSuite) TestPushPop(t *testing.T) {
+	t.Parallel()
+
+	q := s.NewEmpty()
+	for i := 0; i < s.NumItems; i++ {
+		q.Push(i)
+	}
+	assert.False(t, q.Empty(), "empty")
+	assert.Equal(t, s.NumItems, q.Len(), "length")
+
+	t.Run("Do", func(t *testing.T) {
+		want := 0
 		q.Do(func(item int) bool {
-			t.Errorf("unexpected item: %v", item)
+			assert.Equal(t, want, item, "item")
+			want++
 			return true
 		})
 	})
 
-	t.Run("push all then pop", func(t *testing.T) {
-		t.Parallel()
+	for i := 0; i < s.NumItems; i++ {
+		assert.Equal(t, i, q.Peek(), "peek")
+		assert.Equal(t, i, q.Pop(), "pop")
+	}
 
-		q := newEmpty()
-		for i := 0; i < NumItems; i++ {
-			q.Push(i)
-		}
-		assert.False(t, q.Empty(), "empty")
-		assert.Equal(t, NumItems, q.Len(), "length")
+	assert.True(t, q.Empty(), "empty")
+	assert.Zero(t, q.Len(), "length")
+}
 
-		t.Run("Do", func(t *testing.T) {
-			want := 0
-			q.Do(func(item int) bool {
-				assert.Equal(t, want, item, "item")
-				want++
-				return true
-			})
+func (s *queueSuite) TestPushPopInterleaved(t *testing.T) {
+	t.Parallel()
+
+	q := s.NewEmpty()
+	for i := 0; i < s.NumItems; i++ {
+		q.Push(i)
+		q.Do(func(item int) bool {
+			assert.Equal(t, i, item, "item")
+			return true
 		})
+		assert.Equal(t, i, q.Peek(), "peek")
+		assert.Equal(t, i, q.Pop(), "pop")
+	}
 
-		for i := 0; i < NumItems; i++ {
-			assert.Equal(t, i, q.Peek(), "peek")
-			assert.Equal(t, i, q.Pop(), "pop")
-		}
+	assert.True(t, q.Empty(), "empty")
+	assert.Zero(t, q.Len(), "length")
+}
 
-		assert.True(t, q.Empty(), "empty")
-		assert.Zero(t, q.Len(), "length")
-	})
+func (s *queueSuite) TestPushPopWraparound(t *testing.T) {
+	t.Parallel()
 
-	t.Run("push and pop interleaved", func(t *testing.T) {
-		t.Parallel()
+	q := s.NewEmpty()
+	for i := 0; i < s.NumItems; i++ {
+		q.Push(i)
+		q.Push(q.Pop())
+	}
 
-		q := newEmpty()
-		for i := 0; i < NumItems; i++ {
-			q.Push(i)
-			q.Do(func(item int) bool {
-				assert.Equal(t, i, item, "item")
-				return true
-			})
-			assert.Equal(t, i, q.Peek(), "peek")
-			assert.Equal(t, i, q.Pop(), "pop")
-		}
+	got := make([]int, 0, q.Len())
+	for !q.Empty() {
+		got = append(got, q.Pop())
+	}
+	sort.Ints(got)
 
-		assert.True(t, q.Empty(), "empty")
-		assert.Zero(t, q.Len(), "length")
-	})
+	want := make([]int, 0, s.NumItems)
+	for i := 0; i < s.NumItems; i++ {
+		want = append(want, i)
+	}
 
-	t.Run("push and pop with wraparound", func(t *testing.T) {
-		t.Parallel()
-
-		q := newEmpty()
-		for i := 0; i < NumItems; i++ {
-			q.Push(i)
-			q.Push(q.Pop())
-		}
-
-		got := make([]int, 0, q.Len())
-		for !q.Empty() {
-			got = append(got, q.Pop())
-		}
-		sort.Ints(got)
-
-		want := make([]int, 0, NumItems)
-		for i := 0; i < NumItems; i++ {
-			want = append(want, i)
-		}
-
-		assert.Equal(t, want, got, "items")
-	})
+	assert.Equal(t, want, got, "items")
 }
