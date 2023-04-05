@@ -33,10 +33,7 @@ func (m *qMachine) Check(t *rapid.T) {
 	assert.Equal(t, m.q.Len(), m.golden.Len())
 
 	got := make([]int, 0, m.q.Len())
-	m.q.Do(func(x int) bool {
-		got = append(got, x)
-		return true
-	})
+	got = m.q.Snapshot(got)
 
 	for i, e := 0, m.golden.Front(); e != nil; i, e = i+1, e.Next() {
 		assert.Equal(t, e.Value, got[i])
@@ -78,6 +75,15 @@ func (m *qMachine) Empty(t *rapid.T) {
 
 func (m *qMachine) Len(t *rapid.T) {
 	assert.Equal(t, m.golden.Len(), m.q.Len())
+}
+
+func (m *qMachine) Snapshot(t *rapid.T) {
+	got := make([]int, 0, m.q.Len())
+	got = m.q.Snapshot(got)
+
+	for i, e := 0, m.golden.Front(); e != nil; i, e = i+1, e.Next() {
+		assert.Equal(t, e.Value, got[i])
+	}
 }
 
 func (m *qMachine) Do(t *rapid.T) {
