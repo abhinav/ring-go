@@ -32,7 +32,10 @@ func NewQ[T any](capacity int) *Q[T] {
 	if capacity == 0 {
 		capacity = _defaultCapacity
 	}
-	return &Q[T]{buff: make([]T, capacity)}
+	// Allocate requested capacity plus one slot
+	// so that filling the queue to exactly the requested capacity
+	// doesn't require resizing.
+	return &Q[T]{buff: make([]T, capacity+1)}
 }
 
 // Empty returns true if the queue is empty.
