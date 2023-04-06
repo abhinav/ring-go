@@ -165,6 +165,47 @@ func (s *queueSuite) TestPushPopWraparound(t *testing.T) {
 	assert.Equal(t, want, got, "items")
 }
 
+func (s *queueSuite) TestDo(t *testing.T) {
+	q := s.NewEmpty()
+	want := make([]int, 0, s.NumItems)
+	for i := 0; i < s.NumItems; i++ {
+		q.Push(i)
+		want = append(want, i)
+	}
+
+	got := make([]int, 0, s.NumItems)
+	q.Do(func(i int) bool {
+		got = append(got, i)
+		return true
+	})
+	assert.Equal(t, want, got, "do did not iterate fully")
+}
+
+func (s *queueSuite) TestDoReturnEarly(t *testing.T) {
+	stopAt := s.NumItems / 2
+
+	q := s.NewEmpty()
+	want := make([]int, 0, s.NumItems)
+	for i := 0; i < s.NumItems; i++ {
+		q.Push(i)
+		if i < stopAt {
+			want = append(want, i)
+		}
+	}
+
+	got := make([]int, 0, stopAt)
+	q.Do(func(i int) bool {
+		if i >= stopAt {
+			return false
+		}
+
+		got = append(got, i)
+		return true
+	})
+
+	assert.Equal(t, want, got, "iterated over unexpected items")
+}
+
 func (s *queueSuite) TestSnapshot(t *testing.T) {
 	t.Parallel()
 
