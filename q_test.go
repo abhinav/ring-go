@@ -2,7 +2,9 @@ package ring_test
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -47,12 +49,21 @@ func testQueueSuite(t *testing.T, newWithCap func(capacity int) *ring.Q[int]) {
 					NumItems: size,
 				}
 
-				t.Run("Empty", suite.TestEmpty)
-				t.Run("PushPop", suite.TestPushPop)
-				t.Run("PushPopInterleaved", suite.TestPushPopInterleaved)
-				t.Run("PushPopWraparound", suite.TestPushPopWraparound)
-				t.Run("Snapshot", suite.TestSnapshot)
-				t.Run("SnapshotReuse", suite.TestSnapshotReuse)
+				suitev := reflect.ValueOf(suite)
+				suitet := suitev.Type()
+				for i := 0; i < suitet.NumMethod(); i++ {
+					name, ok := cutPrefix(suitet.Method(i).Name, "Test")
+					if !ok {
+						continue
+					}
+
+					testfn, ok := suitev.Method(i).Interface().(func(*testing.T))
+					if !ok {
+						continue
+					}
+
+					t.Run(name, testfn)
+				}
 			})
 		}
 	}
@@ -183,4 +194,13 @@ func (s *queueSuite) TestSnapshotReuse(t *testing.T) {
 	for _, item := range snap[1:] {
 		assert.Equal(t, item, q.Pop(), "item")
 	}
+}
+
+// Copy of strings.CutPrefix for Go 1.19.
+// Delete once Go 1.20 is minimum supported version.
+func cutPrefix(s, prefix string) (after string, found bool) {
+	if !strings.HasPrefix(s, prefix) {
+		return s, false
+	}
+	return s[len(prefix):], true
 }
