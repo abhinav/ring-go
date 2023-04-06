@@ -88,6 +88,8 @@ func (s *queueSuite) TestEmpty(t *testing.T) {
 		q.Peek()
 	}, "pop")
 
+	assert.Empty(t, q.Snapshot(nil), "snapshot")
+
 	q.Do(func(item int) bool {
 		t.Errorf("unexpected item: %v", item)
 		return true
