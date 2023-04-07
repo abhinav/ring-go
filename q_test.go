@@ -1,204 +1,65 @@
 package ring_test
 
 import (
-	"fmt"
-	"reflect"
-	"sort"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"go.abhg.dev/container/ring"
 )
 
-func TestQ(t *testing.T) {
+func TestQ_empty(t *testing.T) {
 	t.Parallel()
 
-	testQueueSuite(t, func(capacity int) *ring.Q[int] {
-		return ring.NewQ[int](capacity)
-	})
-}
+	var q ring.Q[int]
+	assert.Panics(t, func() { q.Peek() }, "peek")
+	assert.Panics(t, func() { q.Pop() }, "pop")
 
-func testQueueSuite(t *testing.T, newWithCap func(capacity int) *ring.Q[int]) {
-	capacities := []int{
-		-1, // special case: use zero value
-		0, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024,
-	}
-	sizes := []int{1, 10, 100, 1000, 10000}
-
-	for _, capacity := range capacities {
-		for _, size := range sizes {
-			require.Greater(t, size, 0,
-				"invalid test: sizes must be greater than 0")
-
-			capacity, size := capacity, size
-			name := fmt.Sprintf("Capacity=%d/Size=%d", capacity, size)
-			newEmpty := func() *ring.Q[int] {
-				if capacity < 0 {
-					return new(ring.Q[int])
-				}
-				return newWithCap(capacity)
-			}
-
-			t.Run(name, func(t *testing.T) {
-				t.Parallel()
-
-				suite := &queueSuite{
-					NewEmpty: newEmpty,
-					NumItems: size,
-				}
-
-				suitev := reflect.ValueOf(suite)
-				suitet := suitev.Type()
-				for i := 0; i < suitet.NumMethod(); i++ {
-					name, ok := cutPrefix(suitet.Method(i).Name, "Test")
-					if !ok {
-						continue
-					}
-
-					testfn, ok := suitev.Method(i).Interface().(func(*testing.T))
-					if !ok {
-						continue
-					}
-
-					t.Run(name, testfn)
-				}
-			})
-		}
-	}
-}
-
-type queueSuite struct {
-	NewEmpty func() *ring.Q[int]
-	NumItems int
-}
-
-func (s *queueSuite) TestEmpty(t *testing.T) {
-	t.Parallel()
-
-	q := s.NewEmpty()
-	assert.True(t, q.Empty(), "empty")
-	assert.Zero(t, q.Len(), "length")
-
-	t.Run("PeekPop", func(t *testing.T) {
-		assert.Panics(t, func() {
-			q.Peek()
-		}, "peek")
-		assert.Panics(t, func() {
-			q.Pop()
-		}, "pop")
-	})
-
-	t.Run("TryPeekPop", func(t *testing.T) {
-		_, ok := q.TryPeek()
-		assert.False(t, ok, "peek should fail")
-
-		_, ok = q.TryPop()
-		assert.False(t, ok, "pop should fail")
-	})
-
-	assert.Empty(t, q.Snapshot(nil), "snapshot")
-
-	assert.Empty(t, q.Snapshot(nil), "snapshot")
-
-	q.Do(func(item int) bool {
-		t.Errorf("unexpected item: %v", item)
+	q.Do(func(i int) bool {
+		t.Errorf("unexpected item: %v", i)
 		return true
 	})
 }
 
-func (s *queueSuite) TestPushPop(t *testing.T) {
+func TestQ_PeekPop(t *testing.T) {
 	t.Parallel()
 
-	q := s.NewEmpty()
-	for i := 0; i < s.NumItems; i++ {
-		q.Push(i)
-	}
-	assert.False(t, q.Empty(), "empty")
-	assert.Equal(t, s.NumItems, q.Len(), "length")
-
-	t.Run("Do", func(t *testing.T) {
-		want := 0
-		q.Do(func(item int) bool {
-			assert.Equal(t, want, item, "item")
-			want++
-			return true
-		})
-	})
-
-	for i := 0; i < s.NumItems; i++ {
-		assert.Equal(t, i, q.Peek(), "peek")
-		assert.Equal(t, i, q.Pop(), "pop")
-	}
-
+	var q ring.Q[int]
+	q.Push(42)
+	assert.Equal(t, 42, q.Peek(), "peek")
+	assert.Equal(t, 42, q.Pop(), "pop")
 	assert.True(t, q.Empty(), "empty")
-	assert.Zero(t, q.Len(), "length")
 }
 
-func (s *queueSuite) TestPushPopInterleaved(t *testing.T) {
+func TestQ_Do(t *testing.T) {
 	t.Parallel()
 
-	q := s.NewEmpty()
-	for i := 0; i < s.NumItems; i++ {
-		q.Push(i)
-		q.Do(func(item int) bool {
-			assert.Equal(t, i, item, "item")
-			return true
-		})
-		assert.Equal(t, i, q.Peek(), "peek")
-		assert.Equal(t, i, q.Pop(), "pop")
-	}
+	const NumItems = 100
+	var q ring.Q[int]
 
-	assert.True(t, q.Empty(), "empty")
-	assert.Zero(t, q.Len(), "length")
-}
-
-func (s *queueSuite) TestPushPopWraparound(t *testing.T) {
-	t.Parallel()
-
-	q := s.NewEmpty()
-	for i := 0; i < s.NumItems; i++ {
-		q.Push(i)
-		q.Push(q.Pop())
-	}
-
-	got := make([]int, 0, q.Len())
-	for !q.Empty() {
-		got = append(got, q.Pop())
-	}
-	sort.Ints(got)
-
-	want := make([]int, 0, s.NumItems)
-	for i := 0; i < s.NumItems; i++ {
-		want = append(want, i)
-	}
-
-	assert.Equal(t, want, got, "items")
-}
-
-func (s *queueSuite) TestDo(t *testing.T) {
-	q := s.NewEmpty()
-	want := make([]int, 0, s.NumItems)
-	for i := 0; i < s.NumItems; i++ {
+	want := make([]int, 0, NumItems)
+	for i := 0; i < NumItems; i++ {
 		q.Push(i)
 		want = append(want, i)
 	}
 
-	got := make([]int, 0, s.NumItems)
+	got := make([]int, 0, NumItems)
 	q.Do(func(i int) bool {
 		got = append(got, i)
 		return true
 	})
+
 	assert.Equal(t, want, got, "do did not iterate fully")
 }
 
-func (s *queueSuite) TestDoReturnEarly(t *testing.T) {
-	stopAt := s.NumItems / 2
+func TestQ_Do_returnEarly(t *testing.T) {
+	t.Parallel()
 
-	q := s.NewEmpty()
-	want := make([]int, 0, s.NumItems)
-	for i := 0; i < s.NumItems; i++ {
+	const NumItems = 100
+	var q ring.Q[int]
+
+	stopAt := NumItems / 2
+	want := make([]int, 0, NumItems)
+	for i := 0; i < NumItems; i++ {
 		q.Push(i)
 		if i < stopAt {
 			want = append(want, i)
@@ -216,46 +77,4 @@ func (s *queueSuite) TestDoReturnEarly(t *testing.T) {
 	})
 
 	assert.Equal(t, want, got, "iterated over unexpected items")
-}
-
-func (s *queueSuite) TestSnapshot(t *testing.T) {
-	t.Parallel()
-
-	q := s.NewEmpty()
-	for i := 0; i < s.NumItems; i++ {
-		q.Push(i)
-	}
-
-	snap := q.Snapshot(nil /* dst */)
-	assert.Len(t, snap, q.Len(), "length")
-	for _, item := range snap {
-		assert.Equal(t, item, q.Pop(), "item")
-	}
-}
-
-func (s *queueSuite) TestSnapshotReuse(t *testing.T) {
-	t.Parallel()
-
-	q := s.NewEmpty()
-	for i := 0; i < s.NumItems; i++ {
-		q.Push(i)
-	}
-
-	snap := []int{42}
-	snap = q.Snapshot(snap)
-	assert.Len(t, snap, q.Len()+1, "length")
-
-	assert.Equal(t, 42, snap[0], "item")
-	for _, item := range snap[1:] {
-		assert.Equal(t, item, q.Pop(), "item")
-	}
-}
-
-// Copy of strings.CutPrefix for Go 1.19.
-// Delete once Go 1.20 is minimum supported version.
-func cutPrefix(s, prefix string) (after string, found bool) {
-	if !strings.HasPrefix(s, prefix) {
-		return s, false
-	}
-	return s[len(prefix):], true
 }

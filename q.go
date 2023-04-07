@@ -6,8 +6,7 @@ const _defaultCapacity = 16
 // The zero value for Q is an empty queue ready to use.
 //
 // Q is not safe for concurrent use.
-// If you need to use it from multiple goroutines,
-// synchronize access to the queue using a mutex.
+// If you need to use it from multiple goroutines, use [MuQ] instead.
 type Q[T any] struct {
 	// buff is the ring buffer.
 	//
@@ -29,13 +28,21 @@ type Q[T any] struct {
 // The capacity defines the leeway for bursts of pushes
 // before the queue needs to grow.
 func NewQ[T any](capacity int) *Q[T] {
+	var q Q[T]
+	q.init(capacity)
+	return &q
+}
+
+func (q *Q[T]) init(capacity int) {
 	if capacity == 0 {
 		capacity = _defaultCapacity
 	}
 	// Allocate requested capacity plus one slot
 	// so that filling the queue to exactly the requested capacity
 	// doesn't require resizing.
-	return &Q[T]{buff: make([]T, capacity+1)}
+	q.buff = make([]T, capacity+1)
+	q.head = 0
+	q.tail = 0
 }
 
 // Empty returns true if the queue is empty.
