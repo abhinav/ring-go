@@ -15,12 +15,24 @@ import (
 func TestQ(t *testing.T) {
 	t.Parallel()
 
-	testQueueSuite(t, func(capacity int) *ring.Q[int] {
+	testQueueSuite(t, func(capacity int) queue[int] {
 		return ring.NewQ[int](capacity)
 	})
 }
 
-func testQueueSuite(t *testing.T, newWithCap func(capacity int) *ring.Q[int]) {
+type queue[T any] interface {
+	Empty() bool
+	Len() int
+	Clear()
+	Push(x T)
+	TryPop() (T, bool)
+	TryPeek() (T, bool)
+	Snapshot([]T) []T
+}
+
+var _ queue[int] = (*ring.Q[int])(nil)
+
+func testQueueSuite(t *testing.T, newWithCap func(capacity int) queue[int]) {
 	capacities := []int{
 		-1, // special case: use zero value
 		0, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024,
@@ -34,7 +46,7 @@ func testQueueSuite(t *testing.T, newWithCap func(capacity int) *ring.Q[int]) {
 
 			capacity, size := capacity, size
 			name := fmt.Sprintf("Capacity=%d/Size=%d", capacity, size)
-			newEmpty := func() *ring.Q[int] {
+			newEmpty := func() queue[int] {
 				if capacity < 0 {
 					return new(ring.Q[int])
 				}
@@ -70,7 +82,7 @@ func testQueueSuite(t *testing.T, newWithCap func(capacity int) *ring.Q[int]) {
 }
 
 type queueSuite struct {
-	NewEmpty func() *ring.Q[int]
+	NewEmpty func() queue[int]
 	NumItems int
 }
 
@@ -81,15 +93,6 @@ func (s *queueSuite) TestEmpty(t *testing.T) {
 	assert.True(t, q.Empty(), "empty")
 	assert.Zero(t, q.Len(), "length")
 
-	t.Run("PeekPop", func(t *testing.T) {
-		assert.Panics(t, func() {
-			q.Peek()
-		}, "peek")
-		assert.Panics(t, func() {
-			q.Pop()
-		}, "pop")
-	})
-
 	t.Run("TryPeekPop", func(t *testing.T) {
 		_, ok := q.TryPeek()
 		assert.False(t, ok, "peek should fail")
@@ -99,13 +102,6 @@ func (s *queueSuite) TestEmpty(t *testing.T) {
 	})
 
 	assert.Empty(t, q.Snapshot(nil), "snapshot")
-
-	assert.Empty(t, q.Snapshot(nil), "snapshot")
-
-	q.Do(func(item int) bool {
-		t.Errorf("unexpected item: %v", item)
-		return true
-	})
 }
 
 func (s *queueSuite) TestPushPop(t *testing.T) {
@@ -118,18 +114,9 @@ func (s *queueSuite) TestPushPop(t *testing.T) {
 	assert.False(t, q.Empty(), "empty")
 	assert.Equal(t, s.NumItems, q.Len(), "length")
 
-	t.Run("Do", func(t *testing.T) {
-		want := 0
-		q.Do(func(item int) bool {
-			assert.Equal(t, want, item, "item")
-			want++
-			return true
-		})
-	})
-
 	for i := 0; i < s.NumItems; i++ {
-		assert.Equal(t, i, q.Peek(), "peek")
-		assert.Equal(t, i, q.Pop(), "pop")
+		assert.Equal(t, i, requirePeek(t, q), "peek")
+		assert.Equal(t, i, requirePop(t, q), "pop")
 	}
 
 	assert.True(t, q.Empty(), "empty")
@@ -142,12 +129,8 @@ func (s *queueSuite) TestPushPopInterleaved(t *testing.T) {
 	q := s.NewEmpty()
 	for i := 0; i < s.NumItems; i++ {
 		q.Push(i)
-		q.Do(func(item int) bool {
-			assert.Equal(t, i, item, "item")
-			return true
-		})
-		assert.Equal(t, i, q.Peek(), "peek")
-		assert.Equal(t, i, q.Pop(), "pop")
+		assert.Equal(t, i, requirePeek(t, q), "peek")
+		assert.Equal(t, i, requirePop(t, q), "pop")
 	}
 
 	assert.True(t, q.Empty(), "empty")
@@ -160,12 +143,12 @@ func (s *queueSuite) TestPushPopWraparound(t *testing.T) {
 	q := s.NewEmpty()
 	for i := 0; i < s.NumItems; i++ {
 		q.Push(i)
-		q.Push(q.Pop())
+		q.Push(requirePop(t, q))
 	}
 
 	got := make([]int, 0, q.Len())
 	for !q.Empty() {
-		got = append(got, q.Pop())
+		got = append(got, requirePop(t, q))
 	}
 	sort.Ints(got)
 
@@ -175,47 +158,6 @@ func (s *queueSuite) TestPushPopWraparound(t *testing.T) {
 	}
 
 	assert.Equal(t, want, got, "items")
-}
-
-func (s *queueSuite) TestDo(t *testing.T) {
-	q := s.NewEmpty()
-	want := make([]int, 0, s.NumItems)
-	for i := 0; i < s.NumItems; i++ {
-		q.Push(i)
-		want = append(want, i)
-	}
-
-	got := make([]int, 0, s.NumItems)
-	q.Do(func(i int) bool {
-		got = append(got, i)
-		return true
-	})
-	assert.Equal(t, want, got, "do did not iterate fully")
-}
-
-func (s *queueSuite) TestDoReturnEarly(t *testing.T) {
-	stopAt := s.NumItems / 2
-
-	q := s.NewEmpty()
-	want := make([]int, 0, s.NumItems)
-	for i := 0; i < s.NumItems; i++ {
-		q.Push(i)
-		if i < stopAt {
-			want = append(want, i)
-		}
-	}
-
-	got := make([]int, 0, stopAt)
-	q.Do(func(i int) bool {
-		if i >= stopAt {
-			return false
-		}
-
-		got = append(got, i)
-		return true
-	})
-
-	assert.Equal(t, want, got, "iterated over unexpected items")
 }
 
 func (s *queueSuite) TestSnapshot(t *testing.T) {
@@ -229,7 +171,7 @@ func (s *queueSuite) TestSnapshot(t *testing.T) {
 	snap := q.Snapshot(nil /* dst */)
 	assert.Len(t, snap, q.Len(), "length")
 	for _, item := range snap {
-		assert.Equal(t, item, q.Pop(), "item")
+		assert.Equal(t, item, requirePop(t, q), "item")
 	}
 }
 
@@ -247,8 +189,20 @@ func (s *queueSuite) TestSnapshotReuse(t *testing.T) {
 
 	assert.Equal(t, 42, snap[0], "item")
 	for _, item := range snap[1:] {
-		assert.Equal(t, item, q.Pop(), "item")
+		assert.Equal(t, item, requirePop(t, q), "item")
 	}
+}
+
+func requirePeek[T any](t require.TestingT, q queue[T]) T {
+	v, ok := q.TryPeek()
+	require.True(t, ok, "peek")
+	return v
+}
+
+func requirePop[T any](t require.TestingT, q queue[T]) T {
+	v, ok := q.TryPop()
+	require.True(t, ok, "pop")
+	return v
 }
 
 // Copy of strings.CutPrefix for Go 1.19.

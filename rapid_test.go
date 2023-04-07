@@ -12,24 +12,33 @@ import (
 func TestQ_rapid(t *testing.T) {
 	t.Parallel()
 
-	rapid.Check(t, rapid.Run[*qMachine]())
+	rapid.Check(t, rapid.Run[*qMachine[*ring.Q[int]]]())
 }
 
-type qMachine struct {
-	q *ring.Q[int]
+type qMachine[QT queue[int]] struct {
+	q QT
 
 	golden *list.List
 }
 
-var _ rapid.StateMachine = (*qMachine)(nil)
+var _ rapid.StateMachine = (*qMachine[queue[int]])(nil)
 
-func (m *qMachine) Init(t *rapid.T) {
+func (m *qMachine[QT]) Init(t *rapid.T) {
 	capacity := rapid.IntRange(1, 100).Draw(t, "capacity")
-	m.q = ring.NewQ[int](capacity)
+
+	var q queue[int]
+	switch queue[int](*new(QT)).(type) {
+	case *ring.Q[int]:
+		q = ring.NewQ[int](capacity)
+	default:
+		t.Fatalf("cannot instantiate queue type: %T", *new(QT))
+	}
+
+	m.q = q.(QT)
 	m.golden = list.New()
 }
 
-func (m *qMachine) Check(t *rapid.T) {
+func (m *qMachine[QT]) Check(t *rapid.T) {
 	assert.Equal(t, m.q.Len(), m.golden.Len())
 
 	got := make([]int, 0, m.q.Len())
@@ -40,22 +49,23 @@ func (m *qMachine) Check(t *rapid.T) {
 	}
 }
 
-func (m *qMachine) Push(t *rapid.T) {
+func (m *qMachine[QT]) Push(t *rapid.T) {
 	x := rapid.Int().Draw(t, "x")
 	m.q.Push(x)
 	m.golden.PushBack(x)
 }
 
-func (m *qMachine) Pop(t *rapid.T) {
+func (m *qMachine[QT]) Pop(t *rapid.T) {
 	if m.golden.Len() == 0 {
 		t.Skip()
 	}
 
-	m.q.Pop()
-	m.golden.Remove(m.golden.Front())
+	want := m.golden.Remove(m.golden.Front())
+	got := requirePop(t, queue[int](m.q))
+	assert.Equal(t, want, got)
 }
 
-func (m *qMachine) TryPop(t *rapid.T) {
+func (m *qMachine[QT]) TryPop(t *rapid.T) {
 	got, ok := m.q.TryPop()
 
 	front := m.golden.Front()
@@ -66,16 +76,16 @@ func (m *qMachine) TryPop(t *rapid.T) {
 	}
 }
 
-func (m *qMachine) Peek(t *rapid.T) {
+func (m *qMachine[QT]) Peek(t *rapid.T) {
 	if m.golden.Len() == 0 {
 		t.Skip()
 	}
 
-	got := m.q.Peek()
+	got := requirePeek(t, queue[int](m.q))
 	assert.Equal(t, m.golden.Front().Value, got)
 }
 
-func (m *qMachine) TryPeek(t *rapid.T) {
+func (m *qMachine[QT]) TryPeek(t *rapid.T) {
 	got, ok := m.q.TryPeek()
 
 	front := m.golden.Front()
@@ -87,20 +97,20 @@ func (m *qMachine) TryPeek(t *rapid.T) {
 	assert.Equal(t, front.Value, got)
 }
 
-func (m *qMachine) Clear(t *rapid.T) {
+func (m *qMachine[QT]) Clear(t *rapid.T) {
 	m.q.Clear()
 	m.golden.Init()
 }
 
-func (m *qMachine) Empty(t *rapid.T) {
+func (m *qMachine[QT]) Empty(t *rapid.T) {
 	assert.Equal(t, m.golden.Len() == 0, m.q.Empty())
 }
 
-func (m *qMachine) Len(t *rapid.T) {
+func (m *qMachine[QT]) Len(t *rapid.T) {
 	assert.Equal(t, m.golden.Len(), m.q.Len())
 }
 
-func (m *qMachine) Snapshot(t *rapid.T) {
+func (m *qMachine[QT]) Snapshot(t *rapid.T) {
 	got := make([]int, 0, m.q.Len())
 	got = m.q.Snapshot(got)
 
@@ -109,9 +119,14 @@ func (m *qMachine) Snapshot(t *rapid.T) {
 	}
 }
 
-func (m *qMachine) Do(t *rapid.T) {
+func (m *qMachine[QT]) Do(t *rapid.T) {
+	doer, ok := any(m.q).(interface{ Do(func(int) bool) })
+	if !ok {
+		t.Skip()
+	}
+
 	el := m.golden.Front()
-	m.q.Do(func(x int) bool {
+	doer.Do(func(x int) bool {
 		assert.Equal(t, el.Value, x)
 		if rapid.Bool().Draw(t, "proceed") {
 			el = el.Next()
