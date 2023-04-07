@@ -7,7 +7,7 @@ import (
 	"go.abhg.dev/container/ring"
 )
 
-func BenchmarkPushPop_sameRate(b *testing.B) {
+func BenchmarkQ_pushPop_sameRate(b *testing.B) {
 	var q ring.Q[int]
 	for i := 0; i < b.N; i++ {
 		q.Push(i)
@@ -15,7 +15,7 @@ func BenchmarkPushPop_sameRate(b *testing.B) {
 	}
 }
 
-func BenchmarkPush_burst(b *testing.B) {
+func BenchmarkQ_push_burst(b *testing.B) {
 	bursts := []int{1, 10, 100}
 
 	for _, burst := range bursts {
