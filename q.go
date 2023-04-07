@@ -102,11 +102,24 @@ func (q *Q[T]) Push(x T) {
 //
 // This is an O(1) operation and does not allocate.
 func (q *Q[T]) Pop() T {
-	if q.head == q.tail {
+	x, ok := q.TryPop()
+	if !ok {
 		panic("empty queue")
 	}
+	return x
+}
 
-	x := q.buff[q.head]
+// TryPop removes and returns the item at the front of the queue.
+// It returns false if the queue is empty.
+// Otherwise, it returns true and the item.
+//
+// This is an O(1) operation and does not allocate.
+func (q *Q[T]) TryPop() (x T, ok bool) {
+	if q.head == q.tail {
+		return x, false
+	}
+
+	x = q.buff[q.head]
 	q.head++
 	if q.head == len(q.buff) {
 		// Wrap around.
@@ -115,7 +128,7 @@ func (q *Q[T]) Pop() T {
 		// the next Pop will catch it when head == tail.
 		q.head = 0
 	}
-	return x
+	return x, true
 }
 
 // Peek returns the item at the front of the queue without removing it.
@@ -123,10 +136,23 @@ func (q *Q[T]) Pop() T {
 //
 // This is an O(1) operation and does not allocate.
 func (q *Q[T]) Peek() T {
-	if q.head == q.tail {
+	x, ok := q.TryPeek()
+	if !ok {
 		panic("empty queue")
 	}
-	return q.buff[q.head]
+	return x
+}
+
+// TryPeek returns the item at the front of the queue.
+// It returns false if the queue is empty.
+// Otherwise, it returns true and the item.
+//
+// This is an O(1) operation and does not allocate.
+func (q *Q[T]) TryPeek() (x T, ok bool) {
+	if q.head == q.tail {
+		return x, false
+	}
+	return q.buff[q.head], true
 }
 
 // Snapshot appends the contents of the queue to dst and returns the result.

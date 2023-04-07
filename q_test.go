@@ -81,12 +81,24 @@ func (s *queueSuite) TestEmpty(t *testing.T) {
 	assert.True(t, q.Empty(), "empty")
 	assert.Zero(t, q.Len(), "length")
 
-	assert.Panics(t, func() {
-		q.Pop()
-	}, "pop")
-	assert.Panics(t, func() {
-		q.Peek()
-	}, "pop")
+	t.Run("PeekPop", func(t *testing.T) {
+		assert.Panics(t, func() {
+			q.Peek()
+		}, "peek")
+		assert.Panics(t, func() {
+			q.Pop()
+		}, "pop")
+	})
+
+	t.Run("TryPeekPop", func(t *testing.T) {
+		_, ok := q.TryPeek()
+		assert.False(t, ok, "peek should fail")
+
+		_, ok = q.TryPop()
+		assert.False(t, ok, "pop should fail")
+	})
+
+	assert.Empty(t, q.Snapshot(nil), "snapshot")
 
 	assert.Empty(t, q.Snapshot(nil), "snapshot")
 
