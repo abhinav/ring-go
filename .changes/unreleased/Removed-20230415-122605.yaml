@@ -1,3 +1,0 @@
-kind: Removed
-body: Drop Q.Do method. Modifying the queue while iterating leads to unexpected behavior.
-time: 2023-04-15T12:26:05.940172193-07:00
