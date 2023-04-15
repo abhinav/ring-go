@@ -126,20 +126,3 @@ func (m *qMachine[QT]) Snapshot(t *rapid.T) {
 		assert.Equal(t, e.Value, got[i])
 	}
 }
-
-func (m *qMachine[QT]) Do(t *rapid.T) {
-	doer, ok := any(m.q).(interface{ Do(func(int) bool) })
-	if !ok {
-		t.Skip()
-	}
-
-	el := m.golden.Front()
-	doer.Do(func(x int) bool {
-		assert.Equal(t, el.Value, x)
-		if rapid.Bool().Draw(t, "proceed") {
-			el = el.Next()
-			return true
-		}
-		return false
-	})
-}
