@@ -14,14 +14,12 @@ type MuQ[T any] struct {
 
 // The API for MuQ differs from Q somewhat:
 //
-// - There's no Do method because we don't want to hold onto a lock
-//   while we wait for a user-specified callback
-// - There's no panicking Pop or Peek method because
-//   if the queue is read from concurrently,
-//   verifying that it's non-empty and removing the entry
-//   must be a single atomic operation,
-//   which means users will only need Try variants,
-//   and having the panicking versions will just cause bugs.
+// There's no panicking Pop or Peek method because
+// if the queue is read from concurrently,
+// verifying that it's non-empty and removing the entry
+// must be a single atomic operation,
+// which means users will only need Try variants,
+// and having the panicking versions will just cause bugs.
 
 // NewMuQ returns a new thread-safe queue with the given capacity.
 func NewMuQ[T any](capacity int) *MuQ[T] {

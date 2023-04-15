@@ -181,27 +181,3 @@ func (q *Q[T]) Snapshot(dst []T) []T {
 	dst = append(dst, q.buff[q.head:]...)
 	return append(dst, q.buff[:q.tail]...)
 }
-
-// Do calls f for each item in the queue, from front to back.
-// It stops if f returns false.
-//
-// This is an O(n) operation and does not allocate.
-func (q *Q[T]) Do(f func(T) (proceed bool)) {
-	if q.head <= q.tail {
-		sliceDo(q.buff[q.head:q.tail], f)
-		return
-	}
-
-	if sliceDo(q.buff[q.head:], f) {
-		sliceDo(q.buff[:q.tail], f)
-	}
-}
-
-func sliceDo[T any](s []T, f func(T) (proceed bool)) bool {
-	for _, x := range s {
-		if !f(x) {
-			return false
-		}
-	}
-	return true
-}
