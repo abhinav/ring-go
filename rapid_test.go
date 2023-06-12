@@ -105,7 +105,7 @@ func (m *qMachine[QT]) TryPeek(t *rapid.T) {
 	assert.Equal(t, front.Value, got)
 }
 
-func (m *qMachine[QT]) Clear(t *rapid.T) {
+func (m *qMachine[QT]) Clear(_ *rapid.T) {
 	m.q.Clear()
 	m.golden.Init()
 }

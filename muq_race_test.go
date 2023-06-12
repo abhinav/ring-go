@@ -9,6 +9,8 @@ import (
 
 // Runs a few goroutines calling the different methods on MuQ concurrently.
 func TestMuQ_race(t *testing.T) {
+	t.Parallel()
+
 	const (
 		// Number of times each function should be called.
 		Steps = 1000
