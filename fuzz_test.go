@@ -8,9 +8,13 @@ import (
 )
 
 func FuzzQ_rapid(f *testing.F) {
-	f.Fuzz(rapid.MakeFuzz(rapid.Run[*qMachine[*ring.Q[int]]]()))
+	f.Fuzz(rapid.MakeFuzz(func(t *rapid.T) {
+		t.Repeat(rapid.StateMachineActions(newQMachine[*ring.Q[int]](t)))
+	}))
 }
 
 func FuzzMuQ_rapid(f *testing.F) {
-	f.Fuzz(rapid.MakeFuzz(rapid.Run[*qMachine[*ring.MuQ[int]]]()))
+	f.Fuzz(rapid.MakeFuzz(func(t *rapid.T) {
+		t.Repeat(rapid.StateMachineActions(newQMachine[*ring.MuQ[int]](t)))
+	}))
 }
