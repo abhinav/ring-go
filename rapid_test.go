@@ -12,13 +12,17 @@ import (
 func TestQ_rapid(t *testing.T) {
 	t.Parallel()
 
-	rapid.Check(t, rapid.Run[*qMachine[*ring.Q[int]]]())
+	rapid.Check(t, func(t *rapid.T) {
+		t.Repeat(rapid.StateMachineActions(newQMachine[*ring.Q[int]](t)))
+	})
 }
 
 func TestMuQ_rapid(t *testing.T) {
 	t.Parallel()
 
-	rapid.Check(t, rapid.Run[*qMachine[*ring.MuQ[int]]]())
+	rapid.Check(t, func(t *rapid.T) {
+		t.Repeat(rapid.StateMachineActions(newQMachine[*ring.MuQ[int]](t)))
+	})
 }
 
 type qMachine[QT queue[int]] struct {
@@ -29,7 +33,7 @@ type qMachine[QT queue[int]] struct {
 
 var _ rapid.StateMachine = (*qMachine[queue[int]])(nil)
 
-func (m *qMachine[QT]) Init(t *rapid.T) {
+func newQMachine[QT queue[int]](t *rapid.T) *qMachine[QT] {
 	capacity := rapid.IntRange(1, 100).Draw(t, "capacity")
 
 	var q queue[int]
@@ -42,8 +46,10 @@ func (m *qMachine[QT]) Init(t *rapid.T) {
 		t.Fatalf("cannot instantiate queue type: %T", *new(QT))
 	}
 
-	m.q = q.(QT)
-	m.golden = list.New()
+	return &qMachine[QT]{
+		q:      q.(QT),
+		golden: list.New(),
+	}
 }
 
 func (m *qMachine[QT]) Check(t *rapid.T) {

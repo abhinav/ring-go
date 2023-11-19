@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/stretchr/testify v1.8.2
-	pgregory.net/rapid v0.5.5
+	pgregory.net/rapid v1.1.0
 )
 
 require (
