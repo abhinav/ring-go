@@ -47,4 +47,4 @@ Feel free to use it in the same way if it meets your needs.
 
 ## License
 
-This software is made available under the MIT license.
+This software is made available under the BSD3 license.
