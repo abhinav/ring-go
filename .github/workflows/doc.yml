@@ -38,7 +38,7 @@ jobs:
       - name: Generate API reference
         run: doc2go -home go.abhg.dev/container/ring ./...
       - name: Upload pages
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
 
   publish:
     name: Publish website
