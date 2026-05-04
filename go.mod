@@ -1,10 +1,10 @@
 module go.abhg.dev/container/ring
 
-go 1.21
+go 1.23
 
 require (
 	github.com/stretchr/testify v1.11.1
-	pgregory.net/rapid v1.2.0
+	pgregory.net/rapid v1.3.0
 )
 
 require (
